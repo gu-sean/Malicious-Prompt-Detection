@@ -13,7 +13,7 @@ async def startup():
 
 app.include_router(api_router, prefix="/api")
 
-@app.get("/")
+@app.get("/") 
 async def root():
     return {"message": "Enterprise Malicious Prompt Detection API is running"}
 
