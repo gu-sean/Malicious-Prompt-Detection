@@ -572,8 +572,7 @@ export default function Home() {
               지금 바로 AI를 보호하세요
             </h2>
             <p className="text-muted-foreground mb-8">
-              무료 플랜으로 시작하여 월 10,000건의 탐지를 무료로 이용하세요.
-              신용카드 없이 즉시 시작할 수 있습니다.
+              엔터프라이즈급 AI 보안을 무료로 이용하세요. 신용카드 없이 즉시 시작할 수 있습니다.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link href="/register">
