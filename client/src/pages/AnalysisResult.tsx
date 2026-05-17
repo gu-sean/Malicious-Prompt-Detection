@@ -188,7 +188,7 @@ export default function AnalysisResult() {
                   </p>
                   <p className="text-muted-foreground">
                     {analysisData.isMalicious
-                      ? '이 프롬프트는 프롬프트 인젝션, 탈옥 시도, 또는 기타 악성 패턴을 포함하고 있습니다. 고도화 분석을 통해 구체적인 위협 유형을 확인하세요.'
+                      ? '이 프롬프트는 프롬프트 인젝션, 탈옥 시도, 또는 기타 악성 패턴을 포함하고 있습니다. 프롬프트를 차단하거나 필터링하는 것이 권장됩니다.'
                       : '이 프롬프트는 일반적인 악성 패턴을 포함하지 않으며, 안전하게 AI 모델에 전달할 수 있습니다.'}
                   </p>
                 </div>
@@ -196,29 +196,6 @@ export default function AnalysisResult() {
             </div>
           </div>
         </div>
-
-        {/* Advanced analysis button */}
-        {analysisData.isMalicious && (
-          <div className="pg-card mb-8" style={{ background: '#E0E7FF', borderColor: '#C7D2FE' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5" style={{ color: '#4F46E5' }} />
-                <div>
-                  <p className="font-semibold text-sm">고도화 분석 이용 가능</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    악성 유형별 위험도를 자세히 확인하세요.
-                  </p>
-                </div>
-              </div>
-              <Link href="/advanced-analysis">
-                <Button className="gap-2" style={{ background: '#4F46E5', color: 'white' }}>
-                  상세 분석 보기
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Action buttons */}
         <div className="flex gap-3">
