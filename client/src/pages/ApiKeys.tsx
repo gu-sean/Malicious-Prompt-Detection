@@ -60,17 +60,23 @@ interface ApiKey {
   permissions: string[];
 }
 
-const USAGE_STATS = [
-  { label: '오늘 요청', value: '2,847', change: '+12%', positive: true },
-  { label: '이번 달 요청', value: '49,538', change: '+8%', positive: true },
-  { label: '평균 응답시간', value: '87ms', change: '-5ms', positive: true },
-  { label: '탐지 성공률', value: '99.7%', change: '+0.1%', positive: true },
-];
+interface UserStats {
+  today_requests: number;
+  month_requests: number;
+  avg_response_time_ms: number;
+  detection_success_rate: number;
+}
 
 export default function ApiKeys() {
   const { isAuthenticated, isLoading, user, token } = useAuth();
   const [, navigate] = useLocation();
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [stats, setStats] = useState<UserStats>({
+    today_requests: 0,
+    month_requests: 0,
+    avg_response_time_ms: 0,
+    detection_success_rate: 99.7,
+  });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNewKeyDialog, setShowNewKeyDialog] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
@@ -99,6 +105,19 @@ export default function ApiKeys() {
         }
       })
       .catch(err => toast.error('API 키를 불러오는데 실패했습니다.'));
+
+      fetch('/api/users/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setStats(data);
+        }
+      })
+      .catch(err => console.error('통계를 불러오는데 실패했습니다.', err));
     }
   }, [isAuthenticated, token]);
 
@@ -174,11 +193,6 @@ export default function ApiKeys() {
     });
   };
 
-  const getUsagePercent = (used: number, limit: number) => {
-    if (!limit) return 0;
-    return Math.min(100, (used / limit) * 100);
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -191,6 +205,13 @@ export default function ApiKeys() {
 
   const activeKeys = keys.filter(k => k.status === 'active');
 
+  const USAGE_STATS = [
+    { label: '오늘 요청', value: stats.today_requests.toLocaleString(), change: '', positive: true },
+    { label: '이번 달 요청', value: stats.month_requests.toLocaleString(), change: '', positive: true },
+    { label: '평균 응답시간', value: `${stats.avg_response_time_ms}ms`, change: '', positive: true },
+    { label: '탐지 성공률', value: `${stats.detection_success_rate}%`, change: '', positive: true },
+  ];
+
   return (
     <div className="container py-10">
       {/* Page header */}
@@ -198,7 +219,7 @@ export default function ApiKeys() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">API 키 관리</h1>
           <p className="text-sm text-muted-foreground">
-            API 키를 생성하고 관리하세요. 키는 안전하게 보관하고 외부에 노출하지 마세요.
+            API 키를 생성하고 관리하세요. 무료 서비스이므로 제한 없이 이용하실 수 있습니다.
           </p>
         </div>
         <Button
@@ -217,37 +238,8 @@ export default function ApiKeys() {
           <div key={i} className="pg-card">
             <div className="text-2xl font-bold tracking-tight mb-1">{stat.value}</div>
             <div className="text-xs text-muted-foreground mb-1">{stat.label}</div>
-            <div className={`text-xs font-medium ${stat.positive ? 'text-emerald-500' : 'text-red-400'}`}>
-              {stat.change}
-            </div>
           </div>
         ))}
-      </div>
-
-      {/* Plan info */}
-      <div className="pg-card mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: 'rgba(79, 70, 229, 0.1)' }}>
-            <Shield className="w-5 h-5" style={{ color: '#4F46E5' }} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">{user?.plan?.toUpperCase()} 플랜</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
-                style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5' }}>
-                {user?.plan === 'pro' ? '월 100,000 요청' : '월 10,000 요청'}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {activeKeys.length}개의 활성 API 키 · 최대 {user?.plan === 'pro' ? '10' : '3'}개
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          플랜 업그레이드
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Button>
       </div>
 
       {/* API Keys list */}
@@ -311,20 +303,8 @@ export default function ApiKeys() {
                         이번 달 사용량
                       </span>
                       <span>
-                        {(apiKey.usageCount || 0).toLocaleString()} / {(apiKey.monthlyLimit || 10000).toLocaleString()}
+                        {(apiKey.usageCount || 0).toLocaleString()} 건
                       </span>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden"
-                      style={{ background: '#F3F4F6' }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${getUsagePercent(apiKey.usageCount, apiKey.monthlyLimit)}%`,
-                          background: getUsagePercent(apiKey.usageCount, apiKey.monthlyLimit) > 80
-                            ? '#EF4444'
-                            : '#4F46E5',
-                        }}
-                      />
                     </div>
                   </div>
 
