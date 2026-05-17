@@ -3,6 +3,7 @@
  * Design: Obsidian Precision - Dark tech SaaS
  * Features: List keys, create new key, revoke key, usage stats
  * Auth: Requires login (redirects to /login if not authenticated)
+ * Connected to backend endpoints.
  */
 
 import { useState, useEffect } from 'react';
@@ -59,48 +60,6 @@ interface ApiKey {
   permissions: string[];
 }
 
-function generateApiKey(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = 'pg-sk-';
-  for (let i = 0; i < 48; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-function maskKey(key: string): string {
-  const prefix = key.substring(0, 10);
-  const suffix = key.substring(key.length - 4);
-  return `${prefix}${'•'.repeat(20)}${suffix}`;
-}
-
-const INITIAL_KEYS: ApiKey[] = [
-  {
-    id: 'key_001',
-    name: 'Production API Key',
-    key: 'pg-sk-prod1234567890abcdefghijklmnopqrstuvwxyz1234',
-    maskedKey: 'pg-sk-prod1•••••••••••••••••••••1234',
-    createdAt: '2025-01-10T09:00:00Z',
-    lastUsed: '2025-01-15T14:32:00Z',
-    usageCount: 48291,
-    monthlyLimit: 100000,
-    status: 'active',
-    permissions: ['detect', 'batch', 'models'],
-  },
-  {
-    id: 'key_002',
-    name: 'Development Key',
-    key: 'pg-sk-dev1234567890abcdefghijklmnopqrstuvwxyz5678',
-    maskedKey: 'pg-sk-dev12•••••••••••••••••••••5678',
-    createdAt: '2025-01-12T11:00:00Z',
-    lastUsed: '2025-01-15T10:15:00Z',
-    usageCount: 1247,
-    monthlyLimit: 10000,
-    status: 'active',
-    permissions: ['detect'],
-  },
-];
-
 const USAGE_STATS = [
   { label: '오늘 요청', value: '2,847', change: '+12%', positive: true },
   { label: '이번 달 요청', value: '49,538', change: '+8%', positive: true },
@@ -109,7 +68,7 @@ const USAGE_STATS = [
 ];
 
 export default function ApiKeys() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, token } = useAuth();
   const [, navigate] = useLocation();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -127,21 +86,21 @@ export default function ApiKeys() {
   }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      const stored = localStorage.getItem('pg_api_keys');
-      if (stored) {
-        setKeys(JSON.parse(stored));
-      } else {
-        setKeys(INITIAL_KEYS);
-        localStorage.setItem('pg_api_keys', JSON.stringify(INITIAL_KEYS));
-      }
+    if (isAuthenticated && token) {
+      fetch('/api/users/keys', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setKeys(data);
+        }
+      })
+      .catch(err => toast.error('API 키를 불러오는데 실패했습니다.'));
     }
-  }, [isAuthenticated]);
-
-  const saveKeys = (newKeys: ApiKey[]) => {
-    setKeys(newKeys);
-    localStorage.setItem('pg_api_keys', JSON.stringify(newKeys));
-  };
+  }, [isAuthenticated, token]);
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) {
@@ -149,44 +108,49 @@ export default function ApiKeys() {
       return;
     }
     setIsCreating(true);
-    await new Promise(r => setTimeout(r, 800));
-
-    const newKey = generateApiKey();
-    const keyObj: ApiKey = {
-      id: `key_${Date.now()}`,
-      name: newKeyName.trim(),
-      key: newKey,
-      maskedKey: maskKey(newKey),
-      createdAt: new Date().toISOString(),
-      lastUsed: null,
-      usageCount: 0,
-      monthlyLimit: user?.plan === 'pro' ? 100000 : 10000,
-      status: 'active',
-      permissions: ['detect', 'batch', 'models'],
-    };
-
-    saveKeys([...keys, keyObj]);
-    setNewKeyValue(newKey);
-    setShowCreateDialog(false);
-    setShowNewKeyDialog(true);
-    setNewKeyName('');
-    setIsCreating(false);
+    
+    try {
+      const res = await fetch('/api/users/keys', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: newKeyName.trim() })
+      });
+      if (!res.ok) throw new Error('API 키 생성 실패');
+      
+      const newKeyObj = await res.json();
+      setKeys([...keys, newKeyObj]);
+      setNewKeyValue(newKeyObj.key);
+      setShowCreateDialog(false);
+      setShowNewKeyDialog(true);
+      setNewKeyName('');
+      toast.success('새 API 키가 생성되었습니다.');
+    } catch (error) {
+      toast.error('API 키 생성에 실패했습니다.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleRevokeKey = (keyId: string) => {
-    const updated = keys.map(k =>
-      k.id === keyId ? { ...k, status: 'revoked' as const } : k
-    );
-    saveKeys(updated);
-    setDeleteKeyId(null);
-    toast.success('API 키가 비활성화되었습니다.');
-  };
-
-  const handleDeleteKey = (keyId: string) => {
-    const updated = keys.filter(k => k.id !== keyId);
-    saveKeys(updated);
-    setDeleteKeyId(null);
-    toast.success('API 키가 삭제되었습니다.');
+  const handleDeleteKey = async (keyId: string) => {
+    try {
+      const res = await fetch(`/api/users/keys/${keyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error('API 키 삭제 실패');
+      
+      const updated = keys.filter(k => k.id !== keyId);
+      setKeys(updated);
+      setDeleteKeyId(null);
+      toast.success('API 키가 삭제되었습니다.');
+    } catch (error) {
+      toast.error('API 키 삭제에 실패했습니다.');
+    }
   };
 
   const handleCopyKey = (key: string) => {
@@ -204,12 +168,16 @@ export default function ApiKeys() {
   };
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('ko-KR', {
       year: 'numeric', month: 'short', day: 'numeric',
     });
   };
 
-  const getUsagePercent = (used: number, limit: number) => Math.min(100, (used / limit) * 100);
+  const getUsagePercent = (used: number, limit: number) => {
+    if (!limit) return 0;
+    return Math.min(100, (used / limit) * 100);
+  };
 
   if (isLoading) {
     return (
@@ -313,19 +281,21 @@ export default function ApiKeys() {
                   {/* Key value */}
                   <div className="flex items-center gap-2 mb-3">
                     <code className="text-xs font-mono text-muted-foreground bg-secondary px-2.5 py-1.5 rounded-md flex-1 truncate">
-                      {revealedKeys.has(apiKey.id) ? apiKey.key : apiKey.maskedKey}
+                      {revealedKeys.has(apiKey.id) && apiKey.key ? apiKey.key : apiKey.maskedKey}
                     </code>
+                    {apiKey.key && (
+                      <button
+                        onClick={() => toggleReveal(apiKey.id)}
+                        className="p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
+                        title={revealedKeys.has(apiKey.id) ? '숨기기' : '보기'}
+                      >
+                        {revealedKeys.has(apiKey.id)
+                          ? <EyeOff className="w-3.5 h-3.5" />
+                          : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
                     <button
-                      onClick={() => toggleReveal(apiKey.id)}
-                      className="p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
-                      title={revealedKeys.has(apiKey.id) ? '숨기기' : '보기'}
-                    >
-                      {revealedKeys.has(apiKey.id)
-                        ? <EyeOff className="w-3.5 h-3.5" />
-                        : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      onClick={() => handleCopyKey(apiKey.key)}
+                      onClick={() => handleCopyKey(apiKey.key || apiKey.maskedKey)}
                       className="p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
                       title="복사"
                     >
@@ -341,7 +311,7 @@ export default function ApiKeys() {
                         이번 달 사용량
                       </span>
                       <span>
-                        {apiKey.usageCount.toLocaleString()} / {apiKey.monthlyLimit.toLocaleString()}
+                        {(apiKey.usageCount || 0).toLocaleString()} / {(apiKey.monthlyLimit || 10000).toLocaleString()}
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden"
@@ -364,7 +334,7 @@ export default function ApiKeys() {
                     <span>마지막 사용: {apiKey.lastUsed ? formatDate(apiKey.lastUsed) : '없음'}</span>
                     <div className="flex items-center gap-1">
                       <Lock className="w-3 h-3" />
-                      {apiKey.permissions.join(', ')}
+                      {(apiKey.permissions || []).join(', ')}
                     </div>
                   </div>
                 </div>
