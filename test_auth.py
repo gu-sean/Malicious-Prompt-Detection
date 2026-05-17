@@ -19,10 +19,16 @@ def request(method, url, data=None, token=None, api_key=None):
     try:
         with urllib.request.urlopen(req) as response:
             res_body = response.read()
-            return response.status, json.loads(res_body) if res_body else None
+            try:
+                return response.status, json.loads(res_body) if res_body else None
+            except:
+                return response.status, res_body.decode('utf-8')
     except urllib.error.HTTPError as e:
         res_body = e.read()
-        return e.code, json.loads(res_body) if res_body else str(e)
+        try:
+            return e.code, json.loads(res_body) if res_body else str(e)
+        except:
+            return e.code, res_body.decode('utf-8')
     except Exception as e:
         return 0, str(e)
 
