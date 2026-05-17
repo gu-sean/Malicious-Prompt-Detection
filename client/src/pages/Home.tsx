@@ -117,7 +117,18 @@ export default function Home() {
     setIsAnalyzing(true);
     setResult(null);
     try {
-      const res = await mockDetect(prompt);
+      const response = await fetch('/api/v1/analyze/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model: embeddingModel }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Analysis failed');
+      }
+
+      const res: DetectionResult = await response.json();
+      setResult(res);
 
       // Store analysis result and navigate to result page
       const analysisData = {
@@ -126,6 +137,7 @@ export default function Home() {
         isMalicious: !res.safe,
         riskPercentage: Math.round(res.score * 100),
         timestamp: new Date().toISOString(),
+        categories: res.categories
       };
       sessionStorage.setItem('pg_analysis_result', JSON.stringify(analysisData));
       navigate('/analysis-result');
