@@ -1,7 +1,7 @@
 /**
  * App.tsx - Routes & top-level layout
  * Design: Light theme - Clean white background
- * Routes: / (Home), /docs (API Docs), /keys (API Keys), /login, /register, /analysis-result, /advanced-analysis
+ * Routes: / (Home), /docs (API Docs), /keys (API Keys), /login, /register, /analysis-result
  */
 
 import { Toaster } from '@/components/ui/sonner';
@@ -19,7 +19,6 @@ import ApiKeys from './pages/ApiKeys';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AnalysisResult from './pages/AnalysisResult';
-import AdvancedAnalysis from './pages/AdvancedAnalysis';
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -51,7 +50,6 @@ function Router() {
       <Route path="/docs" component={() => <Layout><Docs /></Layout>} />
       <Route path="/keys" component={() => <Layout><ApiKeys /></Layout>} />
       <Route path="/analysis-result" component={() => <Layout><AnalysisResult /></Layout>} />
-      <Route path="/advanced-analysis" component={() => <Layout><AdvancedAnalysis /></Layout>} />
       <Route path="/login" component={() => <AuthLayout><Login /></AuthLayout>} />
       <Route path="/register" component={() => <AuthLayout><Register /></AuthLayout>} />
       <Route path="/404" component={NotFound} />
@@ -76,3 +74,4 @@ function App() {
 }
 
 export default App;
+
