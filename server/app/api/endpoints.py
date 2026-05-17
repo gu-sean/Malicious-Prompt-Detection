@@ -50,6 +50,12 @@ async def login(user_data: UserAuth, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"access_token": token, "token_type": "bearer"}
 
+@router.get("/users/stats")
+async def get_user_stats(user_id: int = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    service = APIKeyManagementService(db)
+    stats = await service.get_user_stats(user_id)
+    return stats
+
 @router.get("/users/keys")
 async def get_api_keys(user_id: int = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     service = APIKeyManagementService(db)
