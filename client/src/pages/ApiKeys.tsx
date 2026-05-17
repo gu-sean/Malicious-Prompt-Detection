@@ -67,6 +67,15 @@ interface UserStats {
   detection_success_rate: number;
 }
 
+interface AuditLog {
+  id: number;
+  prompt: string;
+  risk_score: number;
+  action: string;
+  process_time_ms: number;
+  created_at: string;
+}
+
 export default function ApiKeys() {
   const { isAuthenticated, isLoading, user, token } = useAuth();
   const [, navigate] = useLocation();
@@ -77,6 +86,7 @@ export default function ApiKeys() {
     avg_response_time_ms: 0,
     detection_success_rate: 99.7,
   });
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNewKeyDialog, setShowNewKeyDialog] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
@@ -93,6 +103,7 @@ export default function ApiKeys() {
 
   useEffect(() => {
     if (isAuthenticated && token) {
+      // Fetch Keys
       fetch('/api/users/keys', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -106,6 +117,7 @@ export default function ApiKeys() {
       })
       .catch(err => toast.error('API 키를 불러오는데 실패했습니다.'));
 
+      // Fetch Stats
       fetch('/api/users/stats', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -118,6 +130,20 @@ export default function ApiKeys() {
         }
       })
       .catch(err => console.error('통계를 불러오는데 실패했습니다.', err));
+
+      // Fetch Logs
+      fetch('/api/users/logs?limit=10', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setLogs(data);
+        }
+      })
+      .catch(err => console.error('로그를 불러오는데 실패했습니다.', err));
     }
   }, [isAuthenticated, token]);
 
@@ -364,6 +390,89 @@ export default function ApiKeys() {
             ))}
           </>
         )}
+      </div>
+
+      {/* Audit Logs Section */}
+      <div className="mt-12">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            최근 활동 내역 (Audit Logs)
+          </h2>
+          <Button variant="ghost" size="sm" className="text-xs gap-1.5" onClick={() => {
+            if (token) {
+              fetch('/api/users/logs?limit=10', { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(res => res.json())
+                .then(data => Array.isArray(data) && setLogs(data));
+            }
+          }}>
+            <RefreshCw className="w-3 h-3" />
+            새로고침
+          </Button>
+        </div>
+
+        <div className="pg-card p-0 overflow-hidden border border-border/60">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-muted/30 border-b border-border/60">
+                  <th className="px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider">시간</th>
+                  <th className="px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider">프롬프트</th>
+                  <th className="px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider">위험 점수</th>
+                  <th className="px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider">결과</th>
+                  <th className="px-4 py-3 font-semibold text-xs text-muted-foreground uppercase tracking-wider text-right">응답시간</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                      최근 활동 내역이 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                        {new Date(log.created_at).toLocaleString('ko-KR', {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3 max-w-[200px] md:max-w-[400px]">
+                        <p className="truncate text-xs font-mono bg-muted/50 px-1.5 py-0.5 rounded inline-block">
+                          {log.prompt}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div 
+                              className="h-full rounded-full" 
+                              style={{ 
+                                width: `${log.risk_score}%`, 
+                                background: log.risk_score > 70 ? '#EF4444' : log.risk_score > 30 ? '#F59E0B' : '#10B981' 
+                              }} 
+                            />
+                          </div>
+                          <span className="text-xs font-medium w-8">{Math.round(log.risk_score)}%</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {log.action === 'blocked' ? (
+                          <span className="pg-badge-danger text-[10px] px-1.5 py-0">Blocked</span>
+                        ) : (
+                          <span className="pg-badge-safe text-[10px] px-1.5 py-0">Allowed</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-muted-foreground font-mono">
+                        {log.process_time_ms}ms
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Security tips */}
