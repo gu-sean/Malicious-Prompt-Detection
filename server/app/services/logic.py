@@ -78,23 +78,86 @@ class APIKeyManagementService:
         self.key_repo = APIKeyRepository(db)
 
     async def get_keys_for_user(self, user_id: int):
+        from sqlalchemy.future import select
+        from sqlalchemy import func
+        from app.models.domain import DetectionLog
+        from datetime import datetime, timezone
+        
         keys = await self.key_repo.get_by_user_id(user_id)
-        # We transform to frontend format. (We don't return the raw key obviously)
-        # Assuming frontend expects this interface.
-        return [
-            {
+        
+        result_keys = []
+        for k in keys:
+            # Query usage count for this key (this month)
+            now = datetime.now(timezone.utc)
+            start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            stmt = select(func.count(DetectionLog.log_id)).where(
+                DetectionLog.key_id == k.key_id,
+                DetectionLog.created_at >= start_of_month
+            )
+            count_result = await self.key_repo.db.execute(stmt)
+            usage_count = count_result.scalar() or 0
+            
+            # Query last used
+            last_used_stmt = select(DetectionLog.created_at).where(
+                DetectionLog.key_id == k.key_id
+            ).order_by(DetectionLog.created_at.desc()).limit(1)
+            last_used_result = await self.key_repo.db.execute(last_used_stmt)
+            last_used = last_used_result.scalar()
+            
+            result_keys.append({
                 "id": str(k.key_id),
                 "name": k.key_name,
                 "key": "", # omitted for security
                 "maskedKey": f"{k.key_prefix}{'•'*20}****", # We don't have the last 4 chars in DB. It's just visual.
                 "createdAt": k.created_at,
-                "lastUsed": None, # Should be queried from logs optimally, stub for now
-                "usageCount": 0, # Should be queried from logs optimally, stub for now
+                "lastUsed": last_used,
+                "usageCount": usage_count,
                 "monthlyLimit": 10000,
                 "status": "active",
                 "permissions": ["detect"]
-            } for k in keys
-        ]
+            })
+        return result_keys
+
+    async def get_user_stats(self, user_id: int):
+        from sqlalchemy.future import select
+        from sqlalchemy import func
+        from app.models.domain import DetectionLog, APIKey
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Base join query
+        base_query = select(DetectionLog).join(APIKey, DetectionLog.key_id == APIKey.key_id).where(APIKey.user_id == user_id)
+        
+        # Today requests
+        today_stmt = select(func.count(DetectionLog.log_id)).select_from(DetectionLog).join(APIKey).where(
+            APIKey.user_id == user_id,
+            DetectionLog.created_at >= start_of_today
+        )
+        today_count = (await self.key_repo.db.execute(today_stmt)).scalar() or 0
+
+        # Month requests
+        month_stmt = select(func.count(DetectionLog.log_id)).select_from(DetectionLog).join(APIKey).where(
+            APIKey.user_id == user_id,
+            DetectionLog.created_at >= start_of_month
+        )
+        month_count = (await self.key_repo.db.execute(month_stmt)).scalar() or 0
+
+        # Average response time
+        avg_time_stmt = select(func.avg(DetectionLog.process_time_ms)).select_from(DetectionLog).join(APIKey).where(
+            APIKey.user_id == user_id
+        )
+        avg_time = (await self.key_repo.db.execute(avg_time_stmt)).scalar() or 0
+
+        return {
+            "today_requests": today_count,
+            "month_requests": month_count,
+            "avg_response_time_ms": int(avg_time),
+            "detection_success_rate": 99.7 # static as discussed
+        }
 
     async def create_key(self, user_id: int, key_name: str):
         # Generate a real random API key
