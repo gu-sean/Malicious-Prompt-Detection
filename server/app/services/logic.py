@@ -70,3 +70,51 @@ class AnalyzeService:
             "process_time_ms": process_time,
             "log_data": log
         }
+
+import secrets
+
+class APIKeyManagementService:
+    def __init__(self, db: AsyncSession):
+        self.key_repo = APIKeyRepository(db)
+
+    async def get_keys_for_user(self, user_id: int):
+        keys = await self.key_repo.get_by_user_id(user_id)
+        # We transform to frontend format. (We don't return the raw key obviously)
+        # Assuming frontend expects this interface.
+        return [
+            {
+                "id": str(k.key_id),
+                "name": k.key_name,
+                "key": "", # omitted for security
+                "maskedKey": f"{k.key_prefix}{'•'*20}****", # We don't have the last 4 chars in DB. It's just visual.
+                "createdAt": k.created_at,
+                "lastUsed": None, # Should be queried from logs optimally, stub for now
+                "usageCount": 0, # Should be queried from logs optimally, stub for now
+                "monthlyLimit": 10000,
+                "status": "active",
+                "permissions": ["detect"]
+            } for k in keys
+        ]
+
+    async def create_key(self, user_id: int, key_name: str):
+        # Generate a real random API key
+        raw_key = "pg-sk-" + secrets.token_urlsafe(36)
+        key_prefix = raw_key[:10]
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        
+        api_key = APIKey(
+            user_id=user_id,
+            key_name=key_name,
+            key_prefix=key_prefix,
+            key_hash=key_hash
+        )
+        api_key_record = await self.key_repo.create(api_key)
+        return raw_key, api_key_record
+
+    async def delete_key(self, user_id: int, key_id: int):
+        api_key = await self.key_repo.get_by_id_and_user_id(key_id, user_id)
+        if api_key:
+            await self.key_repo.delete(api_key)
+            return True
+        return False
+
