@@ -3,7 +3,7 @@ import json
 import uuid
 import sys
 
-BASE_URL = "http://localhost:8000/api"
+BASE_URL = "http://localhost/api"
 
 def request(method, url, data=None, token=None, api_key=None):
     req = urllib.request.Request(BASE_URL + url, method=method)
