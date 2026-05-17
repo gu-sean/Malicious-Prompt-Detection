@@ -44,6 +44,7 @@ services:
       - JWT_SECRET=your_jwt_secret_key
     volumes:
       - ./server:/app
+      - ./backend:/app/backend
 
   frontend:
     build:

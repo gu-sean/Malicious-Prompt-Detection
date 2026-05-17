@@ -10,3 +10,7 @@ passlib[bcrypt]
 bcrypt<4.0.0
 python-dotenv
 async-lru
+sentence-transformers
+lightgbm
+numpy
+scikit-learn
