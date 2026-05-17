@@ -1,7 +1,7 @@
 /**
  * AuthContext - JWT-based authentication context
  * Design: Obsidian Precision - Dark tech SaaS
- * Stores JWT token in localStorage, provides login/logout/register
+ * Connects to the real backend APIs (/api/users/login, /api/users/signup).
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -26,50 +26,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Mock JWT generation (in production this would come from the server)
-function generateMockToken(user: User): string {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({ ...user, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 }));
-  const signature = btoa('mock-signature');
-  return `${header}.${payload}.${signature}`;
-}
-
 function parseToken(token: string): User | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const payload = JSON.parse(atob(parts[1]));
-    if (payload.exp < Date.now()) return null;
+    
+    // JWT exp is in seconds
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    
+    // Fallbacks for name and id since they might not be fully provided by the backend JWT payload
+    const email = payload.sub || '';
+    const name = email.split('@')[0] || 'User';
+    
     return {
-      id: payload.id,
-      email: payload.email,
-      name: payload.name,
-      plan: payload.plan,
-      createdAt: payload.createdAt,
+      id: payload.user_id ? String(payload.user_id) : 'unknown',
+      email: email,
+      name: name,
+      plan: 'free',
+      createdAt: new Date().toISOString(), // Or from payload if available
     };
   } catch {
     return null;
   }
-}
-
-// Mock user database (localStorage-based for demo)
-function getMockUsers(): Record<string, { password: string; user: User }> {
-  const stored = localStorage.getItem('pg_mock_users');
-  if (stored) return JSON.parse(stored);
-  const defaults: Record<string, { password: string; user: User }> = {
-    'demo@promptguard.ai': {
-      password: 'demo1234',
-      user: {
-        id: 'usr_demo001',
-        email: 'demo@promptguard.ai',
-        name: 'Demo User',
-        plan: 'pro',
-        createdAt: '2024-01-15T00:00:00Z',
-      },
-    },
-  };
-  localStorage.setItem('pg_mock_users', JSON.stringify(defaults));
-  return defaults;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -92,38 +71,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API delay
-    await new Promise(r => setTimeout(r, 800));
-    const users = getMockUsers();
-    const record = users[email.toLowerCase()];
-    if (!record || record.password !== password) {
-      throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
+    const response = await fetch('/api/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
+      try {
+        const errorData = await response.json();
+        // If the backend returns a detail string, we can use it or fallback to Korean.
+        // We stick to the default Korean for a better UX if backend error is generic.
+        if (errorData.detail && errorData.detail !== 'Invalid credentials') {
+          errorMessage = errorData.detail;
+        }
+      } catch (e) {
+        // Fallback error message
+      }
+      throw new Error(errorMessage);
     }
-    const newToken = generateMockToken(record.user);
+
+    const data = await response.json();
+    const newToken = data.access_token;
+    if (!newToken) throw new Error('토큰을 발급받지 못했습니다.');
+
+    const parsedUser = parseToken(newToken);
+    if (!parsedUser) throw new Error('유효하지 않은 토큰입니다.');
+
     localStorage.setItem('pg_token', newToken);
     setToken(newToken);
-    setUser(record.user);
+    setUser(parsedUser);
   };
 
   const register = async (name: string, email: string, password: string) => {
-    await new Promise(r => setTimeout(r, 1000));
-    const users = getMockUsers();
-    if (users[email.toLowerCase()]) {
-      throw new Error('이미 사용 중인 이메일입니다.');
+    const response = await fetch('/api/users/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = '회원가입에 실패했습니다.';
+      try {
+        const errorData = await response.json();
+        if (errorData.detail) errorMessage = errorData.detail;
+      } catch (e) {
+        // Fallback error message
+      }
+      throw new Error(errorMessage);
     }
-    const newUser: User = {
-      id: `usr_${Date.now()}`,
-      email: email.toLowerCase(),
-      name,
-      plan: 'free',
-      createdAt: new Date().toISOString(),
-    };
-    users[email.toLowerCase()] = { password, user: newUser };
-    localStorage.setItem('pg_mock_users', JSON.stringify(users));
-    const newToken = generateMockToken(newUser);
-    localStorage.setItem('pg_token', newToken);
-    setToken(newToken);
-    setUser(newUser);
+
+    // After successful signup, auto login
+    await login(email, password);
   };
 
   const logout = () => {
