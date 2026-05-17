@@ -76,6 +76,20 @@ import secrets
 class APIKeyManagementService:
     def __init__(self, db: AsyncSession):
         self.key_repo = APIKeyRepository(db)
+        self.log_repo = LogRepository(db)
+
+    async def get_user_logs(self, user_id: int, limit: int = 50, offset: int = 0):
+        logs = await self.log_repo.get_by_user_id(user_id, limit, offset)
+        return [
+            {
+                "id": log.log_id,
+                "prompt": log.raw_prompt,
+                "risk_score": log.risk_score_pct,
+                "action": log.action_taken,
+                "process_time_ms": log.process_time_ms,
+                "created_at": log.created_at
+            } for log in logs
+        ]
 
     async def get_keys_for_user(self, user_id: int):
         from sqlalchemy.future import select

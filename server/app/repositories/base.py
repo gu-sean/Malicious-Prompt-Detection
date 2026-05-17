@@ -50,3 +50,12 @@ class LogRepository:
         self.db.add(log)
         await self.db.commit()
         return log
+
+    async def get_by_user_id(self, user_id: int, limit: int = 50, offset: int = 0):
+        from sqlalchemy.future import select
+        from app.models.domain import APIKey
+        stmt = select(DetectionLog).join(APIKey).where(
+            APIKey.user_id == user_id
+        ).order_by(DetectionLog.created_at.desc()).limit(limit).offset(offset)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
