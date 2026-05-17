@@ -24,6 +24,18 @@ class APIKeyRepository:
         result = await self.db.execute(select(APIKey).where(APIKey.key_hash == key_hash))
         return result.scalars().first()
 
+    async def get_by_user_id(self, user_id: int):
+        result = await self.db.execute(select(APIKey).where(APIKey.user_id == user_id))
+        return result.scalars().all()
+
+    async def get_by_id_and_user_id(self, key_id: int, user_id: int):
+        result = await self.db.execute(select(APIKey).where(APIKey.key_id == key_id, APIKey.user_id == user_id))
+        return result.scalars().first()
+
+    async def delete(self, api_key: APIKey):
+        await self.db.delete(api_key)
+        await self.db.commit()
+
     async def create(self, api_key: APIKey):
         self.db.add(api_key)
         await self.db.commit()
