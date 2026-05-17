@@ -1,7 +1,7 @@
 /**
  * Register.tsx - Registration page
  * Design: Obsidian Precision - Dark tech SaaS
- * Auth: JWT-based registration form with plan selection
+ * Auth: JWT-based registration form
  */
 
 import { useState } from 'react';
@@ -16,28 +16,17 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  Zap,
   Lock,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-const PLAN_FEATURES = {
-  free: [
-    '월 10,000건 탐지',
-    '3개 API 키',
-    '기본 탐지 카테고리 (8개)',
-    '이메일 지원',
-  ],
-  pro: [
-    '월 100,000건 탐지',
-    '10개 API 키',
-    '전체 탐지 카테고리 (12개)',
-    '우선 지원',
-    '상세 분석 리포트',
-    '배치 탐지 API',
-  ],
-};
+const FEATURES = [
+  '제한 없는 API 요청',
+  '무제한 API 키',
+  '전체 탐지 카테고리 (12개)',
+  '상세 분석 리포트',
+];
 
 export default function Register() {
   const [, navigate] = useLocation();
@@ -125,35 +114,18 @@ export default function Register() {
               무료로 시작하세요
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-8">
-              신용카드 없이 즉시 시작할 수 있습니다. 월 10,000건의 탐지를 무료로 이용하세요.
+              신용카드 없이 즉시 시작할 수 있습니다. 엔터프라이즈급 AI 보안을 무료로 이용하세요.
             </p>
 
-            {/* Free plan features */}
+            {/* Features */}
             <div className="space-y-2.5 mb-8">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">무료 플랜 포함</p>
-              {PLAN_FEATURES.free.map(feature => (
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">주요 기능</p>
+              {FEATURES.map(feature => (
                 <div key={feature} className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-500" />
                   <span className="text-sm text-foreground">{feature}</span>
                 </div>
               ))}
-            </div>
-
-            {/* Pro plan teaser */}
-            <div className="rounded-xl border p-4"
-              style={{ borderColor: '#C7D2FE', background: 'rgba(255,255,255,0.8)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="w-4 h-4" style={{ color: '#4F46E5' }} />
-                <span className="text-sm font-semibold text-foreground">Pro 플랜으로 업그레이드</span>
-              </div>
-              <div className="space-y-1.5">
-                {PLAN_FEATURES.pro.slice(0, 3).map(feature => (
-                  <div key={feature} className="flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full" style={{ background: '#4F46E5' }}></div>
-                    <span className="text-xs text-muted-foreground">{feature}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </div>

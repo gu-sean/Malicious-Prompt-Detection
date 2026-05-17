@@ -79,10 +79,6 @@ export default function Navbar() {
                 <DropdownMenuContent align="end" className="w-48">
                   <div className="px-3 py-2">
                     <p className="text-xs text-muted-foreground">{user.email}</p>
-                    <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-xs font-medium"
-                      style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5' }}>
-                      {user.plan.toUpperCase()}
-                    </span>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
