@@ -1,17 +1,23 @@
+import os
+
+# ── CPU 스레드 최적화  ──────────────
+_N_THREADS = os.cpu_count() or 4
+os.environ["OMP_NUM_THREADS"]  = str(_N_THREADS)
+os.environ["MKL_NUM_THREADS"]  = str(_N_THREADS)
+os.environ["OPENBLAS_NUM_THREADS"] = str(_N_THREADS)
+
+import torch
+torch.set_num_threads(_N_THREADS)
+
 import pickle
 import numpy as np
-import os
 from pathlib import Path
 from typing import Tuple, Dict, Any
 from sentence_transformers import SentenceTransformer
 
-# 경로 설정 (backend 디렉토리 기준)
 BASE_DIR = Path(__file__).parent.parent
 ARTIFACTS_DIR = BASE_DIR / "artifacts"
 
-# 모델 구성 설정
-# 0: e5-small + LightGBM (경량 모델)
-# 1: e5-large + LightGBM (고성능 모델)
 MODEL_CONFIG = {
     0: {
         "name": "small",
@@ -32,7 +38,6 @@ class MaliciousPromptDetector:
         self._embedders: Dict[int, SentenceTransformer] = {}
 
     def _load_resources(self, model_type: int):
-        """모델 파일과 임베딩 모델을 메모리에 로드합니다."""
         if model_type not in self._models:
             config = MODEL_CONFIG.get(model_type)
             if not config:
@@ -90,7 +95,6 @@ class MaliciousPromptDetector:
             # 에러 발생 시 안전하게 '정상'으로 처리하거나 예외를 던질 수 있음
             return False, 0
 
-# 싱글톤 인스턴스
 _detector_instance = MaliciousPromptDetector()
 
 def analyze_prompt(prompt: str, model_type: int = 0) -> Tuple[bool, int]:
