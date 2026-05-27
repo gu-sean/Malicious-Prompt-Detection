@@ -28,7 +28,7 @@ class AnalyzeService:
         self.key_repo = APIKeyRepository(db)
         self.log_repo = LogRepository(db)
 
-    async def analyze_prompt(self, api_key_str: str, prompt: str):
+    async def analyze_prompt(self, api_key_str: str, prompt: str, model_type: int = 0):
         start_time = time.time()
         
         # 1. API Key Validation
@@ -47,17 +47,18 @@ class AnalyzeService:
             return {"error": "Rate limit exceeded", "status": 429}
 
         # 3. Content Analysis (Integrated with AI Developer's function)
-        is_malicious, risk_score = analyze_prompt_threat(prompt)
+        is_malicious, risk_score = analyze_prompt_threat(prompt, model_type=model_type)
         
         # Determine action based on boolean result from AI
         action = "blocked" if is_malicious else "allowed"
         process_time = int((time.time() - start_time) * 1000)
 
         # 4. Asynchronous Logging
+        used_track = "large" if model_type == 1 else "small"
         log = DetectionLog(
             key_id=api_key.key_id,
             raw_prompt=prompt,
-            used_track="ai-model-v1",
+            used_track=used_track,
             risk_score_pct=float(risk_score),
             action_taken=action,
             process_time_ms=process_time

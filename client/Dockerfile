@@ -1,36 +1,39 @@
 # Build stage
-FROM node:20-slim AS build
-
-# Install pnpm
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Copy package.json and pnpm-lock.yaml (if exists)
-COPY package.json pnpm-lock.yaml* ./
-COPY patches ./patches
+# Copy package.json and package-lock.json
+COPY package*.json ./
 
 # Install dependencies
-RUN pnpm install
+RUN npm install
 
-# Copy the rest of the code
+# Copy all source files
 COPY . .
 
 # Build the application
-RUN pnpm build
+RUN npm run build
 
 # Production stage
-FROM nginx:stable-alpine
+FROM nginx:alpine
 
-# Copy built files from build stage
-# Based on client/vite.config.ts, the outDir is ../dist/public
-COPY --from=build /dist/public /usr/share/nginx/html
+# Configure Nginx for a Single Page Application (SPA)
+RUN rm /etc/nginx/conf.d/default.conf
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html index.htm; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
-# Copy nginx configuration if you have a custom one
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built assets from build stage to nginx serve directory
+COPY --from=build /app/dist /usr/share/nginx/html
 
+# Expose port 80
 EXPOSE 80
 
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]

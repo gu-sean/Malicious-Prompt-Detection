@@ -32,6 +32,7 @@ class UserAuth(BaseModel):
 
 class PromptAnalysisRequest(BaseModel):
     prompt: str
+    model: str = "intfloat/multilingual-e5-small"
 
 class APIKeyCreateRequest(BaseModel):
     name: str
@@ -112,20 +113,9 @@ async def analyze_demo(request: PromptAnalysisDemoRequest):
     is_malicious, risk_score = analyze_prompt_threat(request.prompt, model_type=model_type)
     process_time = int((time.time() - start_time) * 1000)
     
-    # We still want to return categories for the UI
-    # Since the LightGBM model returns a single score, we can mock the category distribution
-    # based on the overall score to keep the UI looking nice.
-    categories = [
-        {"name": "Prompt Injection", "detected": is_malicious, "confidence": risk_score / 100.0 if is_malicious else 0.05},
-        {"name": "Jailbreak Attempt", "detected": is_malicious and risk_score > 80, "confidence": (risk_score / 100.0) * 0.8 if is_malicious else 0.02},
-        {"name": "Role Manipulation", "detected": is_malicious and risk_score > 60, "confidence": (risk_score / 100.0) * 0.6 if is_malicious else 0.03},
-        {"name": "Harmful Content", "detected": False, "confidence": 0.01}
-    ]
-    
     return {
         "safe": not is_malicious,
         "score": risk_score / 100.0,
-        "categories": categories,
         "processingTime": process_time
     }
 
@@ -137,7 +127,8 @@ async def analyze(
     db: AsyncSession = Depends(get_db)
 ):
     service = AnalyzeService(db)
-    result = await service.analyze_prompt(x_api_key, request.prompt)
+    model_type = 1 if "large" in request.model.lower() else 0
+    result = await service.analyze_prompt(x_api_key, request.prompt, model_type)
     
     if "error" in result:
         raise HTTPException(status_code=result["status"], detail=result["error"])

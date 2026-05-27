@@ -1,24 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { request } from '../services/api';
 
-const Login: React.FC = () => {
+const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const data = await request('/users/login', {
+      await request('/users/signup', {
         method: 'POST',
         body: JSON.stringify({ email, password })
       });
-      login(data.access_token);
-      navigate('/dashboard');
+      navigate('/login');
     } catch (err: any) {
       setError(err.message);
     }
@@ -26,7 +23,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="card" style={{ maxWidth: '400px', margin: '40px auto' }}>
-      <h2>로그인</h2>
+      <h2>회원가입</h2>
       {error && <div className="error mb-1">{error}</div>}
       <form onSubmit={handleSubmit} className="flex-col gap-2">
         <div>
@@ -37,10 +34,10 @@ const Login: React.FC = () => {
           <label>비밀번호</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
         </div>
-        <button type="submit">로그인</button>
+        <button type="submit">회원가입</button>
       </form>
     </div>
   );
 };
 
-export default Login;
+export default Signup;

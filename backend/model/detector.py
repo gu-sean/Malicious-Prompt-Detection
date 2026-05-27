@@ -95,7 +95,17 @@ class MaliciousPromptDetector:
             # 에러 발생 시 안전하게 '정상'으로 처리하거나 예외를 던질 수 있음
             return False, 0
 
+    def preload_models(self):
+        print("AI 모델 프리로딩 시작 (Hugging Face 다운로드 포함)...")
+        self._load_resources(0) # Small model
+        self._load_resources(1) # Large model
+        print("모든 AI 모델 프리로딩 완료.")
+
 _detector_instance = MaliciousPromptDetector()
+
+def preload_all_models():
+    """앱 시작 시 모델을 메모리에 미리 로드하기 위한 외부 호출 함수"""
+    _detector_instance.preload_models()
 
 def analyze_prompt(prompt: str, model_type: int = 0) -> Tuple[bool, int]:
     """외부에서 호출할 메인 함수"""

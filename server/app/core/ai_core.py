@@ -4,14 +4,16 @@ from typing import Tuple
 
 # 프로젝트 루트를 Python path에 추가하여 backend 모듈을 찾을 수 있게 함
 BASE_DIR = Path(__file__).parent.parent.parent.parent
-if str(BASE_DIR) not in sys.path:
-    sys.path.append(str(BASE_DIR))
+backend_dir = str(BASE_DIR)
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
 
 try:
-    from backend.model.detector import analyze_prompt
+    from backend.model.detector import analyze_prompt, preload_all_models
 except ImportError:
     # 모듈을 찾지 못할 경우를 대비한 대체 로직 (또는 에러 처리)
     analyze_prompt = None
+    preload_all_models = None
 
 def analyze_prompt_threat(prompt: str, model_type: int = 0) -> Tuple[bool, int]:
     """

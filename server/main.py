@@ -10,6 +10,13 @@ async def startup():
     # Create tables if they don't exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Preload AI models to prevent timeout on first API request
+    from app.core.ai_core import preload_all_models
+    import asyncio
+    print("Starting background model preloading...")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, preload_all_models)
 
 app.include_router(api_router, prefix="/api")
 
